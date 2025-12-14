@@ -4,58 +4,118 @@
 <head>
   <style>
     body {
-      width: 250px;
-      padding: 15px;
+      width: 320px;
+      padding: 0;
+      margin: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background-color: #FFFDE7;
       color: #5D4037;
     }
 
-    h2 {
-      margin-top: 0;
+    header {
+      background-color: #FFB74D;
+      color: white;
+      padding: 15px;
       text-align: center;
-      font-size: 16px;
-      border-bottom: 1px dashed #BDBDBD;
-      padding-bottom: 10px;
+      border-bottom: 3px solid #F57C00;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .container {
+      padding: 15px;
+    }
+
+    .pet-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .pet-item {
+      display: flex;
+      align-items: center;
+      background: white;
+      padding: 10px;
+      border-radius: 12px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+      border: 1px solid #FFE0B2;
+    }
+
+    .pet-thumb {
+      width: 48px;
+      height: 48px;
+      margin-right: 15px;
+      background-color: #FAFAFA;
+      border-radius: 8px;
+      object-fit: contain;
+    }
+
+    .pet-info {
+      flex-grow: 1;
+    }
+
+    .pet-name {
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+
+    .pet-desc {
+      font-size: 11px;
+      color: #9E9E9E;
     }
 
     .control-group {
-      margin-bottom: 15px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-    }
-
-    label {
-      font-weight: bold;
-      font-size: 13px;
     }
 
     input[type="number"] {
       width: 50px;
-      padding: 5px;
-      border-radius: 5px;
+      padding: 6px;
+      border-radius: 6px;
       border: 1px solid #BDBDBD;
-      background: #424242;
-      color: white;
+      background: #F5F5F5;
+      color: #333;
       text-align: center;
+      font-weight: bold;
+    }
+
+    .global-settings {
+      border-top: 2px dashed #BDBDBD;
+      padding-top: 15px;
+      margin-top: 15px;
+    }
+
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
     }
 
     button {
       width: 100%;
-      background-color: #FFB74D;
+      background-color: #4CAF50;
       color: white;
       border: none;
-      padding: 8px;
+      padding: 12px;
       border-radius: 8px;
       cursor: pointer;
       font-weight: bold;
-      font-size: 14px;
+      font-size: 15px;
+      margin-top: 10px;
+      transition: background 0.2s;
     }
 
     button:hover {
-      background-color: #FF9800;
-      transform: translateY(-1px);
+      background-color: #43A047;
     }
 
     .status {
@@ -69,31 +129,31 @@
 </head>
 
 <body>
-  <h2>Trickcal Pet Settings</h2>
+  <header>
+    <h2>AI Pets Settings</h2>
+  </header>
 
-  <div class="control-group">
-    <label>Speaki Count:</label>
-    <input type="number" id="speakiCount" min="0" max="10" value="1">
+  <div class="container">
+    <div class="pet-list" id="petListContainer">
+      <!-- Generated via popup.js -->
+    </div>
+
+    <div class="global-settings">
+      <div class="setting-row">
+        <label>Pet Size Scale:</label>
+        <input type="number" id="petScale" min="0.2" max="2.0" step="0.1" value="0.5">
+      </div>
+      <div class="setting-row">
+        <label>Enable Sound:</label>
+        <input type="checkbox" id="soundEnabled" checked style="width: 20px; height: 20px;">
+      </div>
+    </div>
+
+    <button id="saveBtn">Save Changes</button>
+    <div id="status" class="status"></div>
   </div>
 
-  <div class="control-group">
-    <label>Erpin Count:</label>
-    <input type="number" id="erpinCount" min="0" max="10" value="1">
-  </div>
-
-  <div class="control-group">
-    <label>Size Scale:</label>
-    <input type="number" id="petScale" min="0.5" max="2.0" step="0.1" value="0.5">
-  </div>
-
-  <div class="control-group">
-    <label>Enable Sound:</label>
-    <input type="checkbox" id="soundEnabled" checked>
-  </div>
-
-  <button id="saveBtn">Save & Updates</button>
-  <div id="status" class="status"></div>
-
+  <script src="config.js"></script>
   <script src="popup.js"></script>
 </body>
 

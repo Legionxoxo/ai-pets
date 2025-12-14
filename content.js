@@ -124,20 +124,178 @@ class BasePet {
         this.element.style.transform = transform;
     }
 
-    updateBoundaries() {
-        // Try to find ChatGPT input box
-        const inputArea = document.querySelector('form') || document.querySelector('textarea')?.parentElement;
+    // --- Input Detection Strategies ---
 
-        if (inputArea) {
-            const rect = inputArea.getBoundingClientRect();
+    _detectInputWithSelector(selector, shadowRoot = null) {
+        const root = shadowRoot || document;
+        const input = root.querySelector(selector);
+        return input ? input.getBoundingClientRect() : null;
+    }
+
+    _detectDeepShadow(selectors) {
+        // DFS or specific path to find element in open shadow roots
+        // Simplified: Try to find a custom element and look inside
+        // Copilot example: cib-serp -> shadow -> cib-action-bar -> shadow -> cib-text-input
+        let current = document.querySelector(selectors[0]);
+        for (let i = 1; i < selectors.length; i++) {
+            if (!current?.shadowRoot) return null;
+            current = current.shadowRoot.querySelector(selectors[i]);
+        }
+        return current ? current.getBoundingClientRect() : null;
+    }
+
+    findInputRect() {
+        const host = window.location.hostname;
+
+        // Helper: Get visual container of an input (usually the parent has the border)
+        const getContainer = (el) => {
+            if (!el) return null;
+            // For Claude/ChatGPT, the input is often inside a wrapper with the border
+            // We try to go up 1 or 2 levels to find a block element
+            const p = el.parentElement;
+            if (p && p.tagName !== 'BODY' && p.tagName !== 'HTML') {
+                return p.getBoundingClientRect();
+            }
+            return el.getBoundingClientRect();
+        };
+
+        // 1. Specific Strategies
+
+        if (host.includes("chatgpt.com") || host.includes("openai")) {
+            // ChatGPT: Prefer #prompt-textarea, then fallback to form
+            const el = document.querySelector('#prompt-textarea') || document.querySelector('form textarea');
+            if (el) {
+                // The textarea grows, but the form/wrapper is the "box"
+                // On ChatGPT, #prompt-textarea is the editable div. Its parent has the border.
+                return getContainer(el);
+            }
+        }
+
+        if (host.includes("claude.ai")) {
+            // Claude: The input is a contenteditable div. 
+            // We need the parent fieldset or container to stand on top of the border.
+            const el = document.querySelector('[contenteditable="true"]');
+            if (el) {
+                // Determine the "box" - usually 2 parents up is the fieldset or styled div
+                let container = el.parentElement;
+                // Walk up to find a container with substantial width
+                while (container && container.offsetWidth < el.offsetWidth * 0.9) {
+                    container = container.parentElement;
+                }
+                // Or just hardcode looking for fieldset
+                const fieldset = el.closest('fieldset');
+                if (fieldset) return fieldset.getBoundingClientRect();
+
+                return container ? container.getBoundingClientRect() : el.getBoundingClientRect();
+            }
+        }
+
+        if (host.includes("gemini.google.com")) {
+            // Gemini: .input-area works according to user? 
+            // Keep existing logic or refine.
+            const el = document.querySelector('.input-area') || document.querySelector('rich-textarea');
+            if (el) return el.getBoundingClientRect();
+        }
+
+        if (host.includes("perplexity.ai")) {
+            // Perplexity: Target #ask-input (contenteditable)
+            const el = document.querySelector('#ask-input') || document.querySelector('textarea[placeholder*="Ask"]');
+            if (el) {
+                // Try to find the aesthetic container (rounded-2xl or rounded-full in some UIs)
+                // User snippet: <div class="bg-raised ... rounded-2xl ...">
+                const container = el.closest('.rounded-2xl') || el.closest('.rounded-full') || getContainer(el);
+                if (container) {
+                    return container.getBoundingClientRect();
+                }
+                return el.getBoundingClientRect();
+            }
+        }
+
+        if (host.includes("copilot.microsoft.com") || host.includes("bing.com")) {
+            // Copilot specific: Target the main input text area
+            const el = document.querySelector('textarea[data-testid="composer-input"]') || document.querySelector('#userInput');
+            if (el) {
+                // Walk up to find the main border container
+                // User provided snippet shows 'rounded-3xl' on the main box
+                let container = el.closest('.rounded-3xl') || getContainer(el);
+                if (container) {
+                    const rect = container.getBoundingClientRect();
+                    // Apply 20px padding as requested
+                    return {
+                        ...rect,
+                        top: rect.top - 20,
+                        y: rect.top - 20,
+                        left: rect.left,
+                        right: rect.right,
+                        width: rect.width,
+                        height: rect.height
+                    };
+                }
+            }
+        }
+
+        // 2. Generic Fallback: Find the largest bottom-positioned text entry
+        // Candidates: textarea, input[type=text], [contenteditable]
+        const candidates = [
+            ...document.querySelectorAll('textarea'),
+            ...document.querySelectorAll('div[contenteditable="true"]'),
+            ...document.querySelectorAll('input[type="text"]')
+        ];
+
+        let bestCandidate = null;
+        let maxScore = -1;
+
+        const viewportH = window.innerHeight;
+        const viewportW = window.innerWidth;
+
+        for (const el of candidates) {
+            const rect = el.getBoundingClientRect();
+            // Must be visible
+            if (rect.width === 0 || rect.height === 0 || rect.top < 0) continue;
+
+            // Relaxed positioning: bottom 50% instead of 40%
+            const bottomScore = (rect.top + rect.height / 2) / viewportH;
+
+            // Prefer wider elements 
+            const widthScore = rect.width / viewportW;
+
+            // Score: Weighted bottom position + width
+            // We want something > 0.6 (bottom 40%) but not fully hidden (> 0.98)
+            // And significant width
+            if (bottomScore > 0.5 && bottomScore < 0.99 && widthScore > 0.2) {
+                const score = bottomScore * 2 + widthScore;
+                if (score > maxScore) {
+                    maxScore = score;
+                    // Use container logic for generic inputs too - likely clearer 'box'
+                    bestCandidate = getContainer(el) || rect;
+                }
+            }
+        }
+
+        if (bestCandidate) return bestCandidate;
+
+        // Last Resort Fallback: Check for 'form' tag near bottom
+        const form = document.querySelector('form');
+        if (form) {
+            const rect = form.getBoundingClientRect();
+            if (rect.top > viewportH * 0.6) return rect;
+        }
+
+        return null; // Stick to bottom of screen
+    }
+
+    updateBoundaries() {
+        const inputRect = this.findInputRect();
+
+        if (inputRect) {
             return {
-                y: rect.top - (this.height * this.scale) + GROUND_OFFSET,
-                minX: rect.left,
-                maxX: rect.right - (this.width * this.scale)
+                y: inputRect.top - (this.height * this.scale) + GROUND_OFFSET,
+                minX: Math.max(0, inputRect.left),
+                maxX: Math.min(window.innerWidth - (this.width * this.scale), inputRect.right - (this.width * this.scale))
             };
         }
 
-        // Fallback to window bottom
+        // Default: Window bottom
         return {
             y: window.innerHeight - (this.height * this.scale),
             minX: 0,
@@ -374,72 +532,162 @@ class Erpin extends BasePet {
     }
 }
 
+class Gengar extends BasePet {
+    constructor(id, scale = 1.0) {
+        super(id, "gengar", scale);
+        // Default animation (Eating Ramen)
+        this.setAnimation("Gengar-Eat.png");
+        this.stateTimer = 100;
+    }
+
+    onDragStart() {
+        this.setAnimation("Gengar-Grab.png");
+        this.playSound("gengar-grab.mp3");
+    }
+
+    onHitWall(side) {
+        // Prevent infinite loop if already pouting at wall
+        if (this.state === "POUT") return;
+
+        // Pout near walls triggering "corner sulk"
+        this.vx = 0;
+        this.state = "POUT";
+        this.stateTimer = 30; // Pout for 0.5s (was 2s)
+        this.setAnimation("Gengar-pouty.png");
+        this.playSound("gengar-laughing.mp3");
+
+        // Prepare to walk away after pouting
+        this.facingRight = (side === 'left');
+    }
+
+    behaviorTick() {
+        if (this.isDragging) return;
+        this.stateTimer--;
+
+        if (this.state === "POUT") {
+            if (this.stateTimer <= 0) {
+                // Done pouting, walk away
+                this.state = "WALK";
+                this.stateTimer = 200;
+                this.setAnimation("Gengar-Walk.png");
+                // Walk away from wall
+                this.vx = this.facingRight ? 1.5 : -1.5;
+            }
+            return;
+        }
+
+        if (this.onGround) {
+            if (this.stateTimer <= 0) {
+                const action = Math.random();
+                if (action < 0.2) {
+                    // Idle (Eating Ramen) - Reduced (20%)
+                    this.state = "IDLE";
+                    this.stateTimer = 30 + Math.random() * 20;
+                    this.setAnimation("Gengar-Eat.png");
+                    this.vx = 0;
+                    if (Math.random() < 0.5) this.playSound("gengar-voice.mp3");
+                } else if (action < 0.3) {
+                    // Random Pout (10%)
+                    this.state = "POUT";
+                    this.stateTimer = 30 + Math.random() * 20;
+                    this.setAnimation("Gengar-pouty.png");
+                    this.vx = 0;
+                    this.playSound("gengar-laughing.mp3");
+                } else {
+                    // Walk (70%)
+                    this.state = "WALK";
+                    this.stateTimer = 100 + Math.random() * 200;
+                    this.setAnimation("Gengar-Walk.png");
+
+                    if (this.vx === 0) {
+                        this.facingRight = Math.random() > 0.5;
+                    }
+                    // Speak on start sometimes
+                    if (Math.random() < 0.4) this.playSound("gengar-voice.mp3");
+                }
+            }
+
+            if (this.state === "WALK") {
+                // Slower Acceleration
+                this.vx += this.facingRight ? 0.1 : -0.1;
+
+                // Cap Speed (Reduced to 1.0)
+                if (this.vx > 1.0) this.vx = 1.0;
+                if (this.vx < -1.0) this.vx = -1.0;
+
+                // Periodic Chatter during walk
+                if (Math.random() < 0.002 && !this.isPlaying) { // ~Once every 8-10 seconds
+                    this.playSound("gengar-voice.mp3");
+                }
+            } else {
+                // Friction
+                this.vx *= 0.8;
+            }
+        }
+    }
+}
+
 let pets = [];
 let soundEnabled = true;
 
+const CLASS_MAP = {
+    "speaki": Speaki,
+    "erpin": Erpin,
+    "gengar": Gengar
+};
+
 function syncPets(config) {
     soundEnabled = config.soundEnabled !== undefined ? config.soundEnabled : true;
-    const targetSpeaki = config.speakiCount !== undefined ? config.speakiCount : 1;
-    const targetErpin = config.erpinCount !== undefined ? config.erpinCount : 1;
     const targetScale = config.petScale !== undefined ? config.petScale : 0.5;
-
-    // console.log("Syncing pets. Config:", config, "Target Scale:", targetScale);
 
     // Update existing pets scale
     pets.forEach(p => {
         if (p.scale !== targetScale) {
             p.scale = targetScale;
-            // Update CSS immediately
             p.element.style.width = `${p.width * p.scale}px`;
             p.element.style.height = `${p.height * p.scale}px`;
         }
     });
 
-    // Count current
-    let currentSpeaki = pets.filter(p => p.type === "speaki").length;
-    let currentErpin = pets.filter(p => p.type === "erpin").length;
+    // Dynamic Sync based on Metadata
+    PET_METADATA.forEach(meta => {
+        const targetCount = config[meta.storageKey] !== undefined ? config[meta.storageKey] : (meta.id === 'speaki' || meta.id === 'erpin' ? 1 : 0);
+        let currentCount = pets.filter(p => p.type === meta.id).length;
 
-    // Add Speaki
-    while (currentSpeaki < targetSpeaki) {
-        pets.push(new Speaki(Date.now() + Math.random(), targetScale));
-        currentSpeaki++;
-    }
-    // Remove Speaki
-    while (currentSpeaki > targetSpeaki) {
-        const idx = pets.findIndex(p => p.type === "speaki");
-        if (idx !== -1) {
-            pets[idx].element.remove();
-            pets.splice(idx, 1);
+        // Add
+        while (currentCount < targetCount) {
+            // Instantiate specific class if exists, else could fallback (feature for later)
+            const PetClass = CLASS_MAP[meta.id];
+            if (PetClass) {
+                pets.push(new PetClass(Date.now() + Math.random(), targetScale));
+            }
+            currentCount++;
         }
-        currentSpeaki--;
-    }
 
-    // Add Erpin
-    while (currentErpin < targetErpin) {
-        pets.push(new Erpin(Date.now() + Math.random(), targetScale));
-        currentErpin++;
-    }
-    // Remove Erpin
-    while (currentErpin > targetErpin) {
-        const idx = pets.findIndex(p => p.type === "erpin");
-        if (idx !== -1) {
-            pets[idx].element.remove();
-            pets.splice(idx, 1);
+        // Remove
+        while (currentCount > targetCount) {
+            const idx = pets.findIndex(p => p.type === meta.id);
+            if (idx !== -1) {
+                pets[idx].element.remove();
+                pets.splice(idx, 1);
+            }
+            currentCount--;
         }
-        currentErpin--;
-    }
+    });
 }
 
 function init() {
     console.log("Trickcal Chibi Go Pet Extensions Started!");
 
-    chrome.storage.local.get(['speakiCount', 'erpinCount', 'petScale', 'soundEnabled'], (result) => {
+    const keys = PET_METADATA.map(p => p.storageKey).concat(['petScale', 'soundEnabled']);
+
+    chrome.storage.local.get(keys, (result) => {
         syncPets(result);
         gameLoop();
     });
 
     chrome.storage.onChanged.addListener((changes, namespace) => {
-        chrome.storage.local.get(['speakiCount', 'erpinCount', 'petScale', 'soundEnabled'], (result) => {
+        chrome.storage.local.get(keys, (result) => {
             syncPets(result);
         });
     });
