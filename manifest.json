@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Trickcal Chibi Go Pet",
+  "version": "1.0",
+  "description": "Adds Trickcal Chibi pets to ChatGPT",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "characters/**"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

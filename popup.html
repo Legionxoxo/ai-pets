@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <style>
+    body {
+      width: 250px;
+      padding: 15px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #FFFDE7;
+      color: #5D4037;
+    }
+
+    h2 {
+      margin-top: 0;
+      text-align: center;
+      font-size: 16px;
+      border-bottom: 1px dashed #BDBDBD;
+      padding-bottom: 10px;
+    }
+
+    .control-group {
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    label {
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    input[type="number"] {
+      width: 50px;
+      padding: 5px;
+      border-radius: 5px;
+      border: 1px solid #BDBDBD;
+      background: #424242;
+      color: white;
+      text-align: center;
+    }
+
+    button {
+      width: 100%;
+      background-color: #FFB74D;
+      color: white;
+      border: none;
+      padding: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    button:hover {
+      background-color: #FF9800;
+      transform: translateY(-1px);
+    }
+
+    .status {
+      text-align: center;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #4CAF50;
+      min-height: 15px;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Trickcal Pet Settings</h2>
+
+  <div class="control-group">
+    <label>Speaki Count:</label>
+    <input type="number" id="speakiCount" min="0" max="10" value="1">
+  </div>
+
+  <div class="control-group">
+    <label>Erpin Count:</label>
+    <input type="number" id="erpinCount" min="0" max="10" value="1">
+  </div>
+
+  <div class="control-group">
+    <label>Size Scale:</label>
+    <input type="number" id="petScale" min="0.5" max="2.0" step="0.1" value="0.5">
+  </div>
+
+  <div class="control-group">
+    <label>Enable Sound:</label>
+    <input type="checkbox" id="soundEnabled" checked>
+  </div>
+
+  <button id="saveBtn">Save & Updates</button>
+  <div id="status" class="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>

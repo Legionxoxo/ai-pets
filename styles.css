@@ -1,0 +1,25 @@
+.chibi-pet {
+    position: fixed;
+    z-index: 2147483647;
+    top: 0;
+    left: 0;
+    pointer-events: auto;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.chibi-pet:active {
+    cursor: grabbing;
+}
+
+/* Debug ground line (optional, for development) */
+#chibi-ground-debug {
+    position: fixed;
+    height: 2px;
+    background: red;
+    width: 100%;
+    z-index: 9998;
+    pointer-events: none;
+    display: none;
+}
